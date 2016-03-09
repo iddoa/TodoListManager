@@ -105,6 +105,9 @@ public class TodoListManagerActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * when in context menu, choosing to delete deletes from list or cancel (does nothing and closes the context menu)
+     */
     @Override
     public boolean onContextItemSelected(MenuItem item)
     {
@@ -117,7 +120,6 @@ public class TodoListManagerActivity extends AppCompatActivity {
         else {
             return false;
         }
-
         return true;
     }
 }
