@@ -5,7 +5,7 @@
     android:orderInCategory="100" app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_settings"
+        android:id="@+id/additem"
         android:orderInCategory="100"
         android:title="Add Item"
         app:showAsAction="never" />
