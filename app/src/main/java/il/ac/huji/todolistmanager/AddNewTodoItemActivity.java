@@ -41,8 +41,10 @@ public class AddNewTodoItemActivity extends Activity {
                             //the result intent that will be given back to the main activity
                             Intent result = new Intent();
                             Date dueDate = new Date(datep.getYear() - 1900, datep.getMonth(), datep.getDayOfMonth());
+                            String dateString = dueDate.toString();
+                            String finalString = dateString.substring(0, 10) + dateString.substring(29);
                             result.putExtra("title", input);
-                            result.putExtra("dueDate", dueDate);
+                            result.putExtra("dueDate", finalString);
                             setResult(RESULT_OK, result);
                             finish();
                         }

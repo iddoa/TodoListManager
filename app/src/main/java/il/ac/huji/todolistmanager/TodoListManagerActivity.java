@@ -1,11 +1,14 @@
 package il.ac.huji.todolistmanager;
 
 import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.MenuInflater;
 import android.view.View;
@@ -19,17 +22,27 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.client.ChildEventListener;
+import com.firebase.client.DataSnapshot;
+import com.firebase.client.Firebase;
+import com.firebase.client.FirebaseError;
+import com.firebase.client.ValueEventListener;
+import com.firebase.client.core.Context;
+
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
- * ListItem - each item in the list contains its title and date
+ * ListItem - each item in the list contains its title and date - both strings
  */
 class ListItem{
-    public final Date _date;
+    public final String _date;
     public final String _itemtitle;
-    public ListItem(Date date, String _itemtitle)
+    public ListItem(String date, String _itemtitle)
     {
         this._date = date;
         this._itemtitle = _itemtitle;
@@ -41,11 +54,21 @@ public class TodoListManagerActivity extends AppCompatActivity {
     private List<ListItem> todoList = new ArrayList<ListItem>();
     TodoAdapter adapter;
 
+    Firebase tododb;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_todo_list_manager);
-        adapter = new TodoAdapter(this, todoList);
+        Firebase.setAndroidContext(this);
+        // initializing the firebase object tododb and the adapter
+        tododb = new Firebase("https://todolistmanager.firebaseio.com");
+        adapter = new TodoAdapter(this, tododb.child("list"));
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         // defining the listview
@@ -96,22 +119,25 @@ public class TodoListManagerActivity extends AppCompatActivity {
         MenuInflater inflater = getMenuInflater();
         // showing the item chosen in the title of the context menu
         AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)menuInfo;
-        menu.setHeaderTitle(todoList.get(info.position)._itemtitle);
+        //getting the item's title to populate the title and know which context menu to inflate
+        int pos = info.position;
+        String title = adapter.getList().get(pos)._itemtitle;
+
+        menu.setHeaderTitle(title);
 
         //if it begins with "Call " then open the context_menu_call
-        if  ((todoList.get(info.position)._itemtitle.length()>4) &&
-        ((todoList.get(info.position)._itemtitle.substring(0, 5)).matches("Call ")))
+        if  ((title.length()>4) &&
+        ((title.substring(0, 5)).matches("Call ")))
         {
             inflater.inflate(R.menu.context_menu_call, menu);
             MenuItem item = menu.findItem(R.id.menuItemCall);
-            item.setTitle(todoList.get(info.position)._itemtitle);
+            item.setTitle(title);
         }
         else
         {
             //else, open the regular context_menu
             inflater.inflate(R.menu.context_menu, menu);
         }
-
     }
     /**
      * when in context menu, choosing to delete deletes from list
@@ -122,18 +148,24 @@ public class TodoListManagerActivity extends AppCompatActivity {
     public boolean onContextItemSelected(MenuItem item)
     {
         switch (item.getItemId()){
+            //Delete button clicked
             case (R.id.menuItemDelete) :
                 AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
                 int pos = info.position;
-                todoList.remove(pos);
+                //getting the firebase key of the selected item
+                String key = adapter.getKeysList().get(pos);
+                //removing it from firebase
+                tododb.child("list").child(key).removeValue();
+                //notifying the adapter the set changed
                 adapter.notifyDataSetChanged();
                 break;
+            //Call button clicked
             case (R.id.menuItemCall) :
-                // calling
                 Intent intent = new Intent(Intent.ACTION_DIAL);
                 AdapterView.AdapterContextMenuInfo infocall = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
                 int poscall = infocall.position;
-                String number = todoList.get(poscall)._itemtitle.substring(5);
+                //getting the title that contains "Call " and the number and calling it
+                String number = adapter.getList().get(poscall)._itemtitle.substring(5);
                 intent.setData(Uri.parse("tel:" + number));
                 startActivity(intent);
                 break;
@@ -145,6 +177,7 @@ public class TodoListManagerActivity extends AppCompatActivity {
 
     /**
      * getting the results back from the add new item activity
+     * creating a listitem and pushing it to the firebase list
      */
     @Override
     protected void onActivityResult(int reqcode, int rescode, Intent data)
@@ -156,10 +189,11 @@ public class TodoListManagerActivity extends AppCompatActivity {
                 //checking the string input isnt empty
                 if (!itemTitle.matches(""))
                 {
-                    Date dueDate = (Date)data.getSerializableExtra("dueDate");
+                    String dueDate = data.getExtras().getString("dueDate");
                     ListItem newItem = new ListItem(dueDate, itemTitle);
-                    todoList.add(newItem);
-                    adapter.notifyDataSetChanged();
+                    // pushing the new item to the firebase list
+                    Firebase pushed = tododb.child("list").push();
+                    pushed.setValue(newItem);
                 }
             }
         }
